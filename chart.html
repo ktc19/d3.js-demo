@@ -13,87 +13,64 @@
             margin: 0;
             padding: 0;
         }
+        
         #title {
             font-size: 2em;
-            height: 2em;
             padding: 5px 20px;
             line-height: 2em;
             font-weight: bold;
-            text-transform: uppercase;
-            font-family: 'Lato', sans-serif;
         }
-        #title span{
-            font-size: 1em;
+        
+        #title span {
+            font-size: .5em;
             text-transform: none;
             font-weight: normal;
-        }
-        svg {
-            margin: 0 auto !important;
-            position: absolute;
-            top: 75px;
-        }
-        
-        pre {
-            position: absolute;
-            top: 675px;
-            font-size: 1em;
-            color: gray;
-        }
-        
-        pre comment {
-            color: lightgrey;
-        }
-        
-        pre v {
-            color: cornflowerblue;
-        }
-        
-        pre ex {
-            color: blueviolet;
-        }
-        
-        pre num {
-            color: cadetblue;
-        }
-        
-        pre qu {
-            color: darkorange;
         }
         
         .axis path,
         .axis line {
             fill: none;
-            stroke: black;
+            stroke: #5a5a5a;
+            stroke-width: 1;
             shape-rendering: crispEdges;
         }
         
         .axis text {
-            font-size: 12px;
-            text-transform: uppercase;
+            font-size: .8em;
         }
 
     </style>
 </head>
 
 <body>
-    <div id="title">D3.js demo - <span>Chart</span></div>
+    <div id="title">d3.js demo <span>Weight Chart</span></div>
     <script>
-        // variables
-        var w = 1200,
-            h = 600,
-            padding = 50,
+        // Variables
+        var width = 1000,
+            height = 500,
+            padding = {
+                top: 35,
+                right: 50,
+                bottom: 30,
+                left: 80
+            },
             dataset = [];
 
-        // Load csv file, and format the values
+        // Load and format the CSV values
         d3.csv("data/data.csv", function(error, dataset) {
             dataset.forEach(function(d) {
-                d["Date"] = (d["Date"].split(/\-|\s/)).slice(0, 3).join("-");
-                d["Weight (kg)"] = Math.round(+d["Weight (kg)"] * 2.2 * 10) / 10; //Kilograms to Pounds (kg to lbs)
+                // d["Date"] = (d["Date"].split(/\-|\s/)).slice(0, 3).join("-");
+                d["Date"] = d3.time.format("%Y-%m-%d %I:%M %p").parse(d["Date"]);
+                //Kilograms to Pounds (kg to lbs)
+                d["Weight (kg)"] = Math.round(+d["Weight (kg)"] * 2.2 * 10) / 10;
+                d["Fat mass (%)"] = +d["Fat mass (%)"];
+                d["Lean mass (%)"] = +d["Lean mass (%)"];
             });
 
             // Sort the data by Date
-            // dataset.sort(d3.descending);
             dataset.sort(compare);
+            console.log(dataset);
+
             function compare(a, b) {
                 if (a["Date"] < b["Date"]) {
                     return -1;
@@ -103,39 +80,37 @@
                     return 0;
                 }
             }
-            console.log(dataset);
+
+            //Create ranges
+            var x = d3.time.scale().range([0, width]),
+                y = d3.scale.linear().range([height, 0]),
+                r = d3.scale.linear().range([.5, 10]);
 
             //Create scales
-            var xScale = d3.time.scale()
-                .domain([new Date(dataset[0]["Date"]), d3.time.day.offset(new Date(dataset[dataset.length - 1]["Date"]), 1)]) // http://jsfiddle.net/robdodson/KWRxW/
-                .rangeRound([padding, w - padding * 2]);
+            // var xScale = x.domain([dataset[0]["Date"], d3.time.day.offset(dataset[dataset.length - 1]["Date"], 1)]) // http://jsfiddle.net/robdodson/KWRxW/
 
-            var yScale = d3.scale.linear()
-                .domain([d3.min(dataset, function(d) {
+            var xScale = x.domain(d3.extent(dataset, function(d) {
+                    return d["Date"];
+                })),
+                yScale = y.domain(d3.extent(dataset, function(d) {
                     return d["Weight (kg)"];
-                }), d3.max(dataset, function(d) {
+                })),
+                rScale = r.domain(d3.extent(dataset, function(d) {
                     return d["Weight (kg)"];
-                })])
-                .range([h - padding, padding]);
-
-            var rScale = d3.scale.linear()
-                .domain([d3.min(dataset, function(d) {
-                    return d["Weight (kg)"];
-                }), d3.max(dataset, function(d) {
-                    return d["Weight (kg)"];
-                })])
-                .range([0.25, 10]);
+                }));
 
             //Create SVG element
             var svg = d3.select("body")
                 .append("svg")
                 .attr({
-                    "width": w,
-                    "height": h
-                });
+                    "width": width + padding.left + padding.right,
+                    "height": height + padding.top + padding.bottom
+                })
+                .append("g")
+                .attr("transform", "translate(" + padding.left + "," + padding.top + ")");
 
             //Draw circles and animate them
-            svg.selectAll("circle")
+            svg.selectAll("weight")
                 .data(dataset)
                 .enter()
                 .append("circle")
@@ -157,7 +132,7 @@
                         return rScale(d["Weight (kg)"]) * 5;
                     },
                     "cx": function(d) {
-                        return xScale(new Date(d["Date"]));
+                        return xScale(d["Date"]);
                     },
                     "cy": function(d) {
                         return yScale(d["Weight (kg)"]);
@@ -198,20 +173,19 @@
             svg.append("g")
                 .attr({
                     "class": "axis",
-                    "transform": "translate(0," + (h - padding) + ")"
+                    "transform": "translate(0," + height + ")"
                 })
                 .call(xAxis);
 
             svg.append("g")
                 .attr({
-                    "class": "axis",
-                    "transform": "translate(" + padding + ",0)"
+                    "class": "axis"
                 })
                 .call(yAxis)
                 .append("text")
                 .attr({
                     "transform": "rotate(-90)",
-                    "x": -padding / 2,
+                    "x": padding.top,
                     "y": 0,
                     "dy": ".1em"
                 })
@@ -223,180 +197,12 @@
 
     </script>
 
+
+
     <pre>
-    <v>&lt;script&gt;</v>
-    <comment>// variables</comment>
-        <v>var</v> w = <num>1200</num>,
-            h = <num>600</num>,
-            padding = <num>50</num>,
-            dataset = [];
-
-        <comment>// Load csv file, and format the values</comment>
-        d3.<ex>csv</ex>(<qu>"weight.csv"</qu>, <v>function</v>(<ex>error</ex>, dataset) {
-            dataset.<ex>forEach</ex>(<v>function</v>(<ex>d</ex>) {
-                d[<qu>"Date"</qu>] = (d[<qu>"Date"</qu>].<ex>split</ex>(<qu>/\-|\s/</qu>)).<ex>slice</ex>(<num>0</num>, <num>3</num>).<ex>join</ex>(<qu>"-"</qu>);
-                d[<qu>"Weight (kg)"</qu>] = Math.<ex>round</ex>(+d[<qu>"Weight (kg)"</qu>] * <num>2.2</num> * <num>10</num>) / <num>10</num>; <comment>// Kilograms to Pounds (kg to lbs)</comment>
-            });
-
-            <comment>// Sort the data by Date</comment>
-            <comment>// dataset.sort(d3.descending);</comment>
-            dataset.<ex>sort</ex>(compare);
-
-            <v>function</v> <ex>compare</ex>(<ex>a</ex>, <ex>b</ex>) {
-                <v>if</v> (a[<qu>"Date"</qu>] &lt; b[<qu>"Date"</qu>]) {
-                    <v>return</v> <num>-1</num>;
-                } <v>else if</v> (a[<qu>"Date"</qu>] &gt; b[<qu>"Date"</qu>]) {
-                    <v>return</v> <num>1</num>;
-                } <v>else</v> {
-                    <v>return</v> <num>0</num>;
-                }
-            }
-
-            <comment>//Create scales</comment>
-            <v>var</v> <ex>xScale</ex> = d3.<ex>time</ex>.<ex>scale</ex>()
-                .<ex>domain</ex>([<v>new</v> Date(dataset[0][<qu>"Date"</qu>]), d3.<ex>time</ex>.<ex>day</ex>.<ex>offset</ex>(<v>new</v> Date(dataset[dataset.<ex>length</ex> - <num>1</num>][<qu>"Date"</qu>]), <num>1</num>)])
-                .<ex>rangeRound</ex>([padding, w - padding * <num>2</num>]);
-
-            <v>var</v> <ex>yScale</ex> = d3.<ex>scale</ex>.<ex>linear</ex>()
-                .<ex>domain</ex>([d3.<ex>min</ex>(dataset, <v>function</v>(<ex>d</ex>) {
-                    <v>return</v> d[<qu>"Weight (kg)"</qu>];
-                }), d3.<ex>max</ex>(dataset, <v>function</v>(<ex>d</ex>) {
-                    <v>return</v> d[<qu>"Weight (kg)"</qu>];
-                })])
-                .<ex>range</ex>([h - padding, padding]);
-
-            <v>var</v> rScale = d3.<ex>scale</ex>.<ex>linear</ex>()
-                .<ex>domain</ex>([d3.<ex>min</ex>(dataset, <v>function</v>(<ex>d</ex>) {
-                    <v>return</v> d[<qu>"Weight (kg)"</qu>];
-                }), d3.<ex>max</ex>(dataset, <v>function</v>(<ex>d</ex>) {
-                    <v>return</v> d[<qu>"Weight (kg)"</qu>];
-                })])
-                .<ex>range</ex>([<num>0.25</num>, <num>10</num>]);
-
-            <comment>//Create SVG element</comment>
-            <v>var</v> svg = d3.<ex>select</ex>(<qu>"body"</qu>)
-                .<ex>append</ex>(<qu>"svg"</qu>)
-                .<ex>attr</ex>(<qu>"width"</qu>, w)
-                .<ex>attr</ex>(<qu>"height"</qu>, h);
-
-            <comment>//Draw circles and animate them</comment>
-            svg.<ex>selectAll</ex>(<qu>"circle"</qu>)
-                .<ex>data</ex>(dataset)
-                .<ex>enter</ex>()
-                .<ex>append</ex>(<qu>"circle"</qu>)
-                .<ex>transition</ex>()
-                .<ex>delay</ex>(<v>function</v>(d, i) {
-                    <v>return</v> i * <num>5</num>;
-                })
-                .<ex>duration</ex>(<num>200</num>)
-                .<ex>ease</ex>(<qu>"exp"</qu>)
-                .<ex>each</ex>(<qu>"start"</qu>, <v>function</v>() {
-                    d3.<ex>select</ex>(<v>this</v>)
-                        .<ex>attr</ex>({
-                            <qu>"fill"</qu>: <qu>"#55ffaa"</qu>,
-                            <qu>"r"</qu>: <num>0</num>
-                        })
-                })
-                .<ex>attr</ex>({
-                    <qu>"r"</qu>: <v>function</v>(<ex>d</ex>) {
-                        <v>return</v> rScale(d[<qu>"Weight (kg)"</qu>]) * 5;
-                    },
-                    <qu>"cx"</qu>: <v>function</v>(<ex>d</ex>) {
-                        <v>return</v> xScale(<v>new</v> Date(d[<qu>"Date"</qu>]));
-                    },
-                    <qu>"cy"</qu>: <v>function</v>(<ex>d</ex>) {
-                        <v>return</v> yScale(d[<qu>"Weight (kg)"</qu>]);
-                    },
-                    <qu>"stroke-opacity"</qu>: <num>0.25</num>,
-                    <qu>"fill-opacity"</qu>: <num>0.25</num>,
-                    <qu>"stroke"</qu>: <v>function</v>(<ex>d</ex>) {
-                        <v>return</v> <qu>"hsl(200, "</qu> + Math.<ex>round</ex>(rScale(d[<qu>"Weight (kg)"</qu>]) * <num>8</num>) + <qu>"%,"</qu> + Math.<ex>round</ex>(rScale(d[<qu>"Weight (kg)"</qu>]) * <num>10</num>) + <qu>"%)"</qu>;
-                    },
-                    <qu>"fill"</qu>: <v>function</v>(<ex>d</ex>) {
-                        <v>return</v> <qu>"hsl(200, "</qu> + Math.<ex>round</ex>(rScale(d[<qu>"Weight (kg)"</qu>]) * <num>8</num>) + <qu>"%,"</qu> + Math.<ex>round</ex>(rScale(d[<qu>"Weight (kg)"</qu>]) * <num>8</num>) + <qu>"%)"</qu>;
-                    }
-
-                })
-                .<ex>each</ex>(<qu>"end"</qu>, <v>function</v>() {
-                    d3.<ex>select</ex>(<v>this</v>)
-                        .<ex>transition</ex>()
-                        .<ex>duration</ex>(<num>120</num>)
-                        .<ex>ease</ex>(<qu>"cubic"</qu>)
-                        .<ex>attr</ex>({
-                            <qu>"r"</qu>: <v>function</v>(<ex>d</ex>) {
-                                <v>return</v> rScale(d[<qu>"Weight (kg)"</qu>]) * <num>2</num>;
-                            }
-                        })
-                });
-
-            <comment>//Draw axis and labels</comment> 
-            <v>var</v> <ex>xAxis</ex> = d3.svg.axis()
-                .<ex>scale</ex>(xScale)
-                .<ex>orient</ex>(<qu>"bottom"</qu>)
-                .<ex>ticks</ex>(<num>12</num>);
-
-            <v>var</v> yAxis = d3.svg.axis()
-                .<ex>scale</ex>(yScale)
-                .<ex>orient</ex>(<qu>"left"</qu>)
-                .<ex>ticks</ex>(<num>6</num>);
-
-            svg.<ex>append</ex>(<qu>"g"</qu>)
-                .<ex>attr</ex>(<qu>"class"</qu>, <qu>"axis"</qu>)
-                .<ex>attr</ex>(<qu>"transform"</qu>, <qu>"translate(0,"</qu> + (h - padding) + <qu>")"</qu>)
-                .<ex>call</ex>(xAxis);
-
-            svg.<ex>append</ex>(<qu>"g"</qu>)
-                .<ex>attr</ex>(<qu>"class"</qu>, <qu>"axis"</qu>)
-                .<ex>attr</ex>(<qu>"transform"</qu>, <qu>"translate("</qu> + padding + <qu>",0)"</qu>)
-                .<ex>call</ex>(yAxis)
-                .<ex>append</ex>(<qu>"text"</qu>)
-                .<ex>attr</ex>({
-                    <qu>"transform"</qu>: <qu>"rotate(-90)"</qu>,
-                    <qu>"x"</qu>: -padding / <num>2</num>,
-                    <qu>"y"</qu>: <num>0</num>,
-                    <qu>"dy"</qu>: <qu>".1em"</qu>
-                })
-                .<ex>style</ex>(<qu>"text-anchor"</qu>, <qu>"end"</qu>)
-                .<ex>text</ex>(<qu><qu>"lbs"</qu></qu>);
-
-        });     
-    <v>&lt;/script&gt;</v>
-    
-    data.csv
-    
-    Date,Weight (kg)
-    2016-02-23 8:33 AM,68.3
-    2016-02-20 11:55 AM,67.6
-    2016-02-19 7:55 AM,68.3
-    2016-02-18 8:32 AM,68.3
-    2016-02-17 9:21 AM,68.5
-    2016-02-16 8:37 AM,68
-    2016-02-15 8:34 AM,69.6
-    2016-02-12 8:46 AM,68.3
-    2016-02-11 8:20 AM,68.2
-    2016-02-10 8:40 AM,68.3
-    2016-02-09 8:40 AM,68.3
-    2016-02-02 9:13 AM,68.9
-    2016-02-01 6:31 PM,68.5
-    2016-01-29 8:13 AM,68.4
-    2016-01-28 8:22 AM,68.6
-    2016-01-26 8:17 AM,68.6
-    2016-01-22 8:49 AM,67.9
-    2016-01-21 8:39 AM,68.5
-    2016-01-20 7:35 AM,68.4
-    2016-01-16 12:01 PM,68.1
-    2016-01-15 8:40 AM,68.7
-    2016-01-14 8:15 AM,68.2
-    2016-01-13 8:32 AM,68.5
-    2016-01-12 8:43 AM,67.8
-    2016-01-11 6:39 PM,68.5
-    2016-01-08 10:20 AM,68.5
-    2016-01-07 1:24 PM,68.4
-    .
-    .
-    .
-
+    Source code on <a href="https://github.com/ktc19/d3.js-demo/blob/master/weight-chart.html">GitHub</a>
     </pre>
+
 
 </body>
 
